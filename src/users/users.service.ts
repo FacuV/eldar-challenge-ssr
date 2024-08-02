@@ -1,26 +1,94 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import prisma from 'src/utils/prisma.server';
 
 @Injectable()
 export class UsersService {
-  create(createUserDto: CreateUserDto) {
-    return 'This action adds a new user';
+  async create(createUserDto: CreateUserDto) {
+    try {
+      if (!createUserDto.email || !createUserDto.password) {
+        throw new HttpException(
+          'Email and password are required',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const checkUser = await prisma.user.findUnique({
+        where: {
+          email: createUserDto.email,
+        },
+      });
+
+      if (checkUser) {
+        throw new HttpException(
+          'User with this mail already exists',
+          HttpStatus.CONFLICT,
+        );
+      }
+
+      const user = await prisma.user.create({
+        data: createUserDto,
+      });
+      return user;
+    } catch (error) {
+      return error;
+    }
   }
 
-  findAll() {
-    return `This action returns all users`;
+  async findAll() {
+    const users = await prisma.user.findMany();
+    return users;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  async findOne(id: string) {
+    const user = await this.checkUser(id);
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    return user;
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
-    return `This action updates a #${id} user`;
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const user = prisma.user.update({
+      where: {
+        id,
+      },
+      data: {
+        ...updateUserDto,
+      },
+    });
+
+    return user;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+  async remove(id: string) {
+    const user = prisma.user.delete({
+      where: {
+        id,
+      },
+    });
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    return user;
+  }
+
+  async checkUser(id: string) {
+    const user = await prisma.user.findUnique({
+      where: {
+        id,
+      },
+    });
+
+    if (!user) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    return user;
   }
 }
