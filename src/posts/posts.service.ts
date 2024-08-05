@@ -6,7 +6,7 @@ import axios from 'axios';
 
 @Injectable()
 export class PostsService {
-  async create(createPostDto: CreatePostDto, userType: number, userId: number) {
+  async createPost(createPostDto: CreatePostDto, userType: number) {
     const userRole = userRoles[userType];
 
     if (userRole !== 'admin') {
@@ -20,32 +20,56 @@ export class PostsService {
           headers: {
             'Content-type': 'application/json; charset=UTF-8',
           },
-          data: {
-            ...createPostDto,
-            userId,
-          },
+          data: createPostDto,
         },
       );
 
-      return createPost.data.data;
+      return {
+        ...createPost.data.data,
+        id: createPost.data.id,
+      };
     } catch (err) {
       throw new HttpException(err.response.data, err.response.status);
     }
   }
 
-  findAll() {
-    return `This action returns all posts`;
+  async findAll() {
+    const posts = await axios.get('https://jsonplaceholder.typicode.com/posts');
+    return posts.data;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} post`;
+  async postsByUser(id: number) {
+    if (!id) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
+
+    const post = await axios.get(
+      `https://jsonplaceholder.typicode.com/posts?userId=${id}`,
+    );
+    return post.data;
   }
 
-  update(id: number, updatePostDto: UpdatePostDto) {
-    return `This action updates a #${id} post`;
-  }
+  async updatePost(id: number, updatePostDto: UpdatePostDto, userType: number) {
+    if (!id) {
+      throw new HttpException('User not found', HttpStatus.NOT_FOUND);
+    }
 
-  remove(id: number) {
-    return `This action removes a #${id} post`;
+    const userRole = userRoles[userType] || 'user';
+
+    if (userRole !== 'admin') {
+      throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+    }
+
+    const post = await axios.put(
+      `https://jsonplaceholder.typicode.com/posts/${id}`,
+      {
+        headers: {
+          'Content-type': 'application/json; charset=UTF-8',
+        },
+        data: updatePostDto,
+      },
+    );
+
+    return post.data.data;
   }
 }
